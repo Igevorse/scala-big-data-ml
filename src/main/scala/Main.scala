@@ -35,20 +35,28 @@ object Main extends App {
         val twits = stream.window(Seconds(60))
           .filter((tweet) =>
                   tweet.getLang == "en"
-//            &&
-//                    (tweet.getHashtagEntities()
-//            .map(he => he.getText.toLowerCase())
-//            .contains("usa")
-//            ||
-//            tweet.getText.split(" ").map(word => word.toLowerCase).contains("usa")
-//            )
+            &&
+                    (tweet.getHashtagEntities()
+            .map( he => he.getText.toLowerCase())
+            .contains("usa")
+            ||
+            tweet.getText.split(" ").map(word => word.toLowerCase).contains("trump")
+            )
           )
           .map(m => Tweet(m.getCreatedAt().getTime() / 1000, m.getText)
           )
 
 
-        twits.foreachRDD(rdd => rdd.collect().foreach(println))
+        twits.foreachRDD(rdd => rdd.collect().foreach(ProcessTweet))
 
         ssc.start()
         ssc.awaitTermination()
+
+        var tweetCount : Int = 0
+
+
+        def ProcessTweet(tweet: Tweet): Unit = {
+                tweetCount+=1
+                println("%d %s".format(tweetCount, tweet))
+        }
 }
