@@ -21,3 +21,7 @@ project/plugins/project/
 *.iws
 out
 .DS_Store
+
+
+# project specific
+src/main/properties/twitter4j.properties
