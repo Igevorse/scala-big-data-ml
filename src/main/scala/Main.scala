@@ -7,6 +7,7 @@ import org.apache.spark.SparkConf
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark
+import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LogisticRegression, NaiveBayes}
 import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
@@ -53,27 +54,10 @@ object Main extends App {
           .option("mode", "DROPMALFORMED").csv("data/data.csv")
           .withColumnRenamed("_c0", "label")
           .withColumnRenamed("_c5", "text")
-//          .select($"")
 
 
         val df_ready = df.select(columns.map(c => col(c)): _*)
-        df_ready.show(3)
-
-//        val tf = new HashingTF().setInputCol("text").transform(df_ready)
-//
-//
-//
-//        val idf = new IDF().setInputCol("text").setOutputCol("features")
-//        val df_transformed = idf.fit(df).transform(df)
-//
-//
-//
-//        val model = new NaiveBayes().fit(df_transformed)
-
-//        model.
-
-
-
+        val df2 = df_ready.withColumn("label", df_ready("label").cast(IntegerType))
 
         val tokenizer = new Tokenizer()
           .setInputCol("text")
@@ -84,13 +68,12 @@ object Main extends App {
           .setInputCol(tokenizer.getOutputCol)
           .setOutputCol("features")
 
-        val nb = new NaiveBayes()
+        val nb = new LogisticRegression()
 
         val pipeline = new Pipeline()
           .setStages(Array(tokenizer, hashingTF, nb))
 
-        val model = pipeline.fit(df_ready)
-
+        val model = pipeline.fit(df2)
 
 
 
