@@ -6,6 +6,15 @@ import org.apache.spark.streaming._
 import org.apache.spark.SparkConf
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
+import org.apache.spark
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.classification.{LogisticRegression, NaiveBayes}
+import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
+import org.apache.spark.mllib.util.MLUtils
+import org.apache.spark.sql.{Row, SQLContext, SparkSession}
+import org.apache.spark.sql.functions.col
+//import org.apache.spark.implicits._
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.collection.JavaConverters._
 
@@ -22,11 +31,70 @@ object Main extends App {
                         sys.exit(1)
         }
 
+
+
+
+
         Logger.getLogger("org").setLevel(Level.OFF)
         Logger.getLogger("akka").setLevel(Level.OFF)
 
         val sc = new SparkConf().setAppName("BravoML").setMaster("local[2]") // local
         val ssc = new StreamingContext(sc, Seconds(15))
+
+
+
+        val sparkSession = SparkSession.builder().appName("BravoML").getOrCreate()
+
+        val columns = Seq("label", "text")
+
+        // Data: https://docs.google.com/file/d/0B04GJPshIjmPRnZManQwWEdTZjg/
+        val df = sparkSession.read
+//          .option("header", "true")
+          .option("mode", "DROPMALFORMED").csv("data/data.csv")
+          .withColumnRenamed("_c0", "label")
+          .withColumnRenamed("_c5", "text")
+//          .select($"")
+
+
+        val df_ready = df.select(columns.map(c => col(c)): _*)
+        df_ready.show(3)
+
+//        val tf = new HashingTF().setInputCol("text").transform(df_ready)
+//
+//
+//
+//        val idf = new IDF().setInputCol("text").setOutputCol("features")
+//        val df_transformed = idf.fit(df).transform(df)
+//
+//
+//
+//        val model = new NaiveBayes().fit(df_transformed)
+
+//        model.
+
+
+
+
+        val tokenizer = new Tokenizer()
+          .setInputCol("text")
+          .setOutputCol("words")
+
+        val hashingTF = new HashingTF()
+          .setNumFeatures(1000)
+          .setInputCol(tokenizer.getOutputCol)
+          .setOutputCol("features")
+
+        val nb = new NaiveBayes()
+
+        val pipeline = new Pipeline()
+          .setStages(Array(tokenizer, hashingTF, nb))
+
+        val model = pipeline.fit(df_ready)
+
+
+
+
+
         val stream = TwitterUtils.createStream(ssc, None)
 
 
@@ -46,17 +114,38 @@ object Main extends App {
           .map(m => Tweet(m.getCreatedAt().getTime() / 1000, m.getText)
           )
 
+        var tweetCount : Int = 0
+
+
+
 
         twits.foreachRDD(rdd => rdd.collect().foreach(ProcessTweet))
+        //twits.foreachRDD(ProcessTweets)
 
         ssc.start()
         ssc.awaitTermination()
 
-        var tweetCount : Int = 0
+
 
 
         def ProcessTweet(tweet: Tweet): Unit = {
                 tweetCount+=1
                 println("%d %s".format(tweetCount, tweet))
+                val data = Seq(
+                        Row(tweet.text)
+                )
+
+                val schema = List(StructField("text", StringType, true))
+
+                val test = sparkSession.createDataFrame(
+                        sparkSession.sparkContext.parallelize(data),
+                        StructType(schema)
+                )
+
+                //model.transform(test).collect().foreach(case Row())
+
+                val prediction = model.transform(test)
         }
+
+
 }

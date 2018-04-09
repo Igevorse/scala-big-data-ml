@@ -25,3 +25,4 @@ out
 
 # project specific
 src/main/properties/twitter4j.properties
+data/
