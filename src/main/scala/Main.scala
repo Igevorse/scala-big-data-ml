@@ -8,9 +8,9 @@ import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import org.apache.spark
 import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.ml.classification.{LogisticRegression, NaiveBayes}
-import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
+import org.apache.spark.ml.feature.{HashingTF, IDF, RegexTokenizer, Tokenizer}
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql.{Row, SQLContext, SparkSession}
 import org.apache.spark.sql.functions.col
@@ -18,6 +18,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.collection.JavaConverters._
+
+
 
 object Main extends App {
 
@@ -46,34 +48,46 @@ object Main extends App {
 
         val sparkSession = SparkSession.builder().appName("BravoML").getOrCreate()
 
-        val columns = Seq("label", "text")
+//        val columns = Seq("label", "text")
+//
+//        // Data: https://docs.google.com/file/d/0B04GJPshIjmPRnZManQwWEdTZjg/
+//        val df = sparkSession.read
+////          .option("header", "true")
+//          .option("mode", "DROPMALFORMED").csv("data/data.csv")
+//          .withColumnRenamed("_c0", "label")
+//          .withColumnRenamed("_c5", "text")
+//
+//
+//        val df_ready = df.select(columns.map(c => col(c)): _*)
+//        val df2 = df_ready.withColumn("label", df_ready("label").cast(IntegerType))
+//
+//        val tokenizer = new Tokenizer()
+//          .setInputCol("text")
+//          .setOutputCol("words")
+//
+//        val hashingTF = new HashingTF()
+//          .setNumFeatures(1000)
+//          .setInputCol(tokenizer.getOutputCol)
+//          .setOutputCol("features")
+//
+//        val nb = new LogisticRegression()
+//
+//        val pipeline = new Pipeline()
+//          .setStages(Array(tokenizer, hashingTF, nb))
+//
+//        //val model = pipeline.fit(df2)
 
-        // Data: https://docs.google.com/file/d/0B04GJPshIjmPRnZManQwWEdTZjg/
-        val df = sparkSession.read
-//          .option("header", "true")
-          .option("mode", "DROPMALFORMED").csv("data/data.csv")
-          .withColumnRenamed("_c0", "label")
-          .withColumnRenamed("_c5", "text")
 
 
-        val df_ready = df.select(columns.map(c => col(c)): _*)
-        val df2 = df_ready.withColumn("label", df_ready("label").cast(IntegerType))
+        var model : PipelineModel = null
 
-        val tokenizer = new Tokenizer()
-          .setInputCol("text")
-          .setOutputCol("words")
-
-        val hashingTF = new HashingTF()
-          .setNumFeatures(1000)
-          .setInputCol(tokenizer.getOutputCol)
-          .setOutputCol("features")
-
-        val nb = new LogisticRegression()
-
-        val pipeline = new Pipeline()
-          .setStages(Array(tokenizer, hashingTF, nb))
-
-        val model = pipeline.fit(df2)
+        try {
+                model = PipelineModel.load("Models/logreg")
+        } catch {
+                case e : org.apache.hadoop.mapred.InvalidInputException => {
+                        model = LearnModel()
+                }
+        }
 
 
 
@@ -109,7 +123,12 @@ object Main extends App {
         ssc.awaitTermination()
 
 
+        val predictions = Map(4.0 -> "Positive", 2.0 -> "Negative", 0.0 -> "Neutral")
 
+
+
+
+        case class ProcessedTweet(text: String, pred: String)
 
         def ProcessTweet(tweet: Tweet): Unit = {
                 tweetCount+=1
@@ -128,6 +147,56 @@ object Main extends App {
                 //model.transform(test).collect().foreach(case Row())
 
                 val prediction = model.transform(test)
+                  .select("text", "prediction")
+                  .collect()
+//                  .foreach(m => m.values)
+//                  .foreach(case (text, prediction) => )
+//                  .map(m => ProcessedTweet(m.getString(0), predictions(m.getDouble(1))))
+
+
+
+                println(prediction)
+        }
+
+
+        def LearnModel() : PipelineModel = {
+
+                val columns = Seq("label", "text")
+
+                // Data: https://docs.google.com/file/d/0B04GJPshIjmPRnZManQwWEdTZjg/
+                val df = sparkSession.read
+                  //          .option("header", "true")
+                  .option("mode", "DROPMALFORMED").csv("data/data.csv")
+                  .withColumnRenamed("_c0", "label")
+                  .withColumnRenamed("_c5", "text")
+
+
+                val df_ready = df.select(columns.map(c => col(c)): _*)
+                val df2 = df_ready.withColumn("label", df_ready("label").cast(IntegerType))
+
+
+                val tokenizer = new Tokenizer()
+                  .setInputCol("text")
+                  .setOutputCol("words")
+
+
+                val hashingTF = new HashingTF()
+                  .setNumFeatures(1000)
+                  .setInputCol(tokenizer.getOutputCol)
+                  .setOutputCol("features")
+
+                val nb = new LogisticRegression()
+
+                val pipeline = new Pipeline()
+                  .setStages(Array(tokenizer, hashingTF, nb))
+
+
+                val model = pipeline.fit(df2)
+
+                model.write.overwrite().save("Models/logreg")
+
+
+                return model
         }
 
 
