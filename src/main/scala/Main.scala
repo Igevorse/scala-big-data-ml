@@ -18,6 +18,8 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.collection.JavaConverters._
+import org.apache.spark.ml.feature.StopWordsRemover
+import scala.io.Source
 
 
 
@@ -48,38 +50,9 @@ object Main extends App {
 
         val sparkSession = SparkSession.builder().appName("BravoML").getOrCreate()
 
-//        val columns = Seq("label", "text")
-//
-//        // Data: https://docs.google.com/file/d/0B04GJPshIjmPRnZManQwWEdTZjg/
-//        val df = sparkSession.read
-////          .option("header", "true")
-//          .option("mode", "DROPMALFORMED").csv("data/data.csv")
-//          .withColumnRenamed("_c0", "label")
-//          .withColumnRenamed("_c5", "text")
-//
-//
-//        val df_ready = df.select(columns.map(c => col(c)): _*)
-//        val df2 = df_ready.withColumn("label", df_ready("label").cast(IntegerType))
-//
-//        val tokenizer = new Tokenizer()
-//          .setInputCol("text")
-//          .setOutputCol("words")
-//
-//        val hashingTF = new HashingTF()
-//          .setNumFeatures(1000)
-//          .setInputCol(tokenizer.getOutputCol)
-//          .setOutputCol("features")
-//
-//        val nb = new LogisticRegression()
-//
-//        val pipeline = new Pipeline()
-//          .setStages(Array(tokenizer, hashingTF, nb))
-//
-//        //val model = pipeline.fit(df2)
-
-
-
         var model : PipelineModel = null
+        val predictions = Map(4 -> "Positive", 0 -> "Negative", 2 -> "Neutral")
+        val stopwords = Source.fromFile("stopwords.txt").getLines.toArray
 
         try {
                 model = PipelineModel.load("Models/logreg")
@@ -123,7 +96,7 @@ object Main extends App {
         ssc.awaitTermination()
 
 
-        val predictions = Map(4.0 -> "Positive", 2.0 -> "Negative", 0.0 -> "Neutral")
+        
 
 
 
@@ -147,15 +120,14 @@ object Main extends App {
                 //model.transform(test).collect().foreach(case Row())
 
                 val prediction = model.transform(test)
-                  .select("text", "prediction")
+                  .select("prediction")
                   .collect()
 //                  .foreach(m => m.values)
 //                  .foreach(case (text, prediction) => )
 //                  .map(m => ProcessedTweet(m.getString(0), predictions(m.getDouble(1))))
 
 
-
-                println(prediction)
+                println("Predicted class: " + predictions(prediction(0).getDouble(0).toInt))
         }
 
 
@@ -178,17 +150,22 @@ object Main extends App {
                 val tokenizer = new Tokenizer()
                   .setInputCol("text")
                   .setOutputCol("words")
+                  
+                val remover = new StopWordsRemover()
+                    .setInputCol("words")
+                    .setOutputCol("removed")
+                    .setStopWords(stopwords)
 
 
                 val hashingTF = new HashingTF()
                   .setNumFeatures(1000)
-                  .setInputCol(tokenizer.getOutputCol)
+                  .setInputCol(remover.getOutputCol)
                   .setOutputCol("features")
 
                 val nb = new LogisticRegression()
 
                 val pipeline = new Pipeline()
-                  .setStages(Array(tokenizer, hashingTF, nb))
+                  .setStages(Array(tokenizer, remover, hashingTF, nb))
 
 
                 val model = pipeline.fit(df2)
