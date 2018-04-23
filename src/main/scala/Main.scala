@@ -57,7 +57,7 @@ object Main extends App {
                 session.execute(
                         """CREATE KEYSPACE IF NOT EXISTS bdc WITH
                           | replication = { 'class': 'SimpleStrategy', 'replication_factor': 1}""".stripMargin)
-                session.execute("""CREATE TABLE IF NOT EXISTS bdc.tweets (tw_id long, tw_text text, PRIMARY KEY (tw_id))""")
+                session.execute("""CREATE TABLE IF NOT EXISTS bdc.tweets (tw_id bigint, tw_text text, tw_class text, PRIMARY KEY (tw_id))""")
         }}
 
         var model : PipelineModel = null
@@ -82,14 +82,14 @@ object Main extends App {
         val twits = stream.window(Seconds(60))
           .filter((tweet) =>
                   tweet.getLang == "en"
-            &&
+            //&&
 //                    (tweet.getHashtagEntities()
 //            .map( he => he.getText.toLowerCase())
 //            .contains("usa")
 //            ||
 //            tweet.getText.split(" ").map(word => word.toLowerCase).contains("trump")
 //            )
-                  isLocationOk(tweet.getGeoLocation)
+                 // isLocationOk(tweet.getGeoLocation)
           )
           .map(m => Tweet(m.getId, m.getText)
           )
@@ -141,7 +141,14 @@ object Main extends App {
 
                 // transform to rdd and put into cassandra
 
-                prediction.rdd.saveToCassandra("bdc", "tweets")
+                //prediction.rdd.saveToCassandra("bdc", "tweets")
+                var query = """INSERT INTO bdc.tweets (tw_id, tw_text, tw_class) VALUES (""" + tweet.tw_id.toString +""", '""" + tweet.text + """', '""" + predictions(prediction.collect()(0).getDouble(0).toInt) +"""');"""
+                query = query.replaceAll("'", "\'")
+                println(query)
+                CassandraConnector(sc).withSessionDo{ session => {
+                    session.execute(query)
+                    }
+                }
 
                 println("Predicted class: " + predictions(prediction.collect()(0).getDouble(0).toInt))
 
