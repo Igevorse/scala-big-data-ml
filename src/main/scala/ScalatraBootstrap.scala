@@ -1,4 +1,3 @@
-import innopolis._
 import org.scalatra._
 import javax.servlet.ServletContext
 

@@ -20,6 +20,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import scala.collection.JavaConverters._
 import org.apache.spark.ml.feature.StopWordsRemover
 import scala.io.Source
+import scala.collection.mutable.HashMap
 
 
 
@@ -27,28 +28,29 @@ import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.{ DefaultServlet, ServletContextHandler }
 import org.eclipse.jetty.webapp.WebAppContext
 import org.scalatra.servlet.ScalatraListener
-import innopolis._
 
 object JettyLauncher {
-  def main(args: Array[String]) {
-    val port = if(System.getProperty("http.port") != null) System.getProperty("http.port").toInt else 8080
+    var myML : MLStreaming = null
+    def main(args: Array[String]) {
+        val port = if(System.getProperty("http.port") != null) System.getProperty("http.port").toInt else 8080
 
-    val server = new Server(port)
-    val context = new WebAppContext()
-    context.setContextPath("/")
-    //context.mount(new WebServer, "/*")
-    context.setResourceBase("src/main/webapp")
+        val server = new Server(port)
+        val context = new WebAppContext()
+        context.setContextPath("/")
+        //context.mount(new WebServer, "/*")
+        context.setResourceBase("src/main/webapp")
 
-    context.setEventListeners(Array(new ScalatraListener))
+        context.setEventListeners(Array(new ScalatraListener))
 
-    server.setHandler(context)
+        server.setHandler(context)
 
-    (new Thread(new MLStreaming())).start()
+        this.myML = new MLStreaming()
+        (new Thread(myML)).start()
 
-    
-    server.start
-    server.join
-  }
+
+        server.start
+        server.join
+    }
 }
 
 
@@ -56,10 +58,10 @@ class MLStreaming extends Runnable with Serializable{
     var sparkSession : SparkSession = null
     var model : PipelineModel = null
     case class Tweet(createdAt: Long, text: String)
-    case class ProcessedTweet(text: String, pred: String)
+    case class ProcessedTweet(id:Long, text: String, pred: String)
     var tweetCount : Int = 0
     val predictions = Map(4 -> "Positive", 0 -> "Negative", 2 -> "Neutral")
-    
+    val processed_tweets = HashMap.empty[Long,ProcessedTweet]
     
     def run() {
     
@@ -158,8 +160,9 @@ class MLStreaming extends Runnable with Serializable{
 //                  .foreach(case (text, prediction) => )
 //                  .map(m => ProcessedTweet(m.getString(0), predictions(m.getDouble(1))))
 
-
-                println("Predicted class: " + predictions(prediction(0).getDouble(0).toInt))
+                val pred_cls = predictions(prediction(0).getDouble(0).toInt)
+                println("Predicted class: " + pred_cls)
+                this.processed_tweets(tweetCount) = ProcessedTweet(tweetCount, tweet.text, pred_cls)
         }
 
         try {
