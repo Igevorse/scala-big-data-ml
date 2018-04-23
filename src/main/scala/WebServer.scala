@@ -4,7 +4,9 @@ import org.json4s._
 import org.scalatra.json._
 import org.json4s.jackson.Serialization.write
 import scala.io.Source
-case class Message(id: String, text: String)
+
+import com.datastax.spark.connector.cql.CassandraConnector
+import com.datastax.spark.connector._
 
 
 class WebServer extends ScalatraServlet with MethodOverride{
@@ -26,12 +28,21 @@ class WebServer extends ScalatraServlet with MethodOverride{
         contentType="text/html"
         
         val n = params("n")
-        val keys = JettyLauncher.myML.processed_tweets.keySet.toList.sorted.take(n.toInt)
+        /*var query = """SELECT * FROM bdc.tweets LIMIT """+n+""";"""
+        CassandraConnector(sc).withSessionDo{ session => {
+            session.execute(query)
+            }
+        }*/
         
-        var data = write(JettyLauncher.myML.processed_tweets.filterKeys(keys.toSet))
+        
+        var data = write(JettyLauncher.myML.sparkSession.sparkContext.cassandraTable("bdc","tweets").collect().take(n.toInt))
+        
+        
+        //val keys = JettyLauncher.myML.processed_tweets.keySet.toList.sorted.take(n.toInt)
+        
+        //var data = write(JettyLauncher.myML.processed_tweets.filterKeys(keys.toSet))
         //var data = write(JettyLauncher.myML.processed_tweets)
-        data = data.replaceAll("[\n]", " ")
-        data = data.replaceAll("'", "\'")
+        data = data.replaceAll("\n", " ").replaceAll("\\n", " ").replaceAll("'", "\'").replaceAll("[\t\n\r\f]", " ")
         
         var html = Source.fromFile("frontend/database.html").mkString
         html = html.replace("HERE_SHOULD_BE_N", n);

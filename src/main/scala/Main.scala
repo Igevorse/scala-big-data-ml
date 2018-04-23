@@ -29,6 +29,9 @@ import org.eclipse.jetty.servlet.{ DefaultServlet, ServletContextHandler }
 import org.eclipse.jetty.webapp.WebAppContext
 import org.scalatra.servlet.ScalatraListener
 
+import com.datastax.spark.connector.cql.CassandraConnector
+import com.datastax.spark.connector._
+
 object JettyLauncher {
     var myML : MLStreaming = null
     def main(args: Array[String]) {
@@ -57,7 +60,7 @@ object JettyLauncher {
 class MLStreaming extends Runnable with Serializable{
     var sparkSession : SparkSession = null
     var model : PipelineModel = null
-    case class Tweet(createdAt: Long, text: String)
+    case class Tweet(tw_id: Long, text: String)
     case class ProcessedTweet(id:Long, text: String, pred: String)
     var tweetCount : Int = 0
     val predictions = Map(4 -> "Positive", 0 -> "Negative", 2 -> "Neutral")
@@ -129,12 +132,19 @@ class MLStreaming extends Runnable with Serializable{
         Logger.getLogger("org").setLevel(Level.OFF)
         Logger.getLogger("akka").setLevel(Level.OFF)
 
-        val sc = new SparkConf().setAppName("BravoML").setMaster("local[2]") // local
+        val sc = new SparkConf().setAppName("BravoML").setMaster("local[2]").set("spark.cassandra.connection.host", "localhost") // local
         val ssc = new StreamingContext(sc, Seconds(15))
 
 
 
         this.sparkSession = SparkSession.builder().appName("BravoML").getOrCreate()
+
+        CassandraConnector(sc).withSessionDo{ session => {
+                session.execute(
+                        """CREATE KEYSPACE IF NOT EXISTS bdc WITH
+                          | replication = { 'class': 'SimpleStrategy', 'replication_factor': 1}""".stripMargin)
+                session.execute("""CREATE TABLE IF NOT EXISTS bdc.tweets (tw_id bigint, tw_text text, tw_class text, PRIMARY KEY (tw_id))""")
+        }}
 
         
         def ProcessTweet(tweet: Tweet): Unit = {
@@ -163,6 +173,16 @@ class MLStreaming extends Runnable with Serializable{
                 val pred_cls = predictions(prediction(0).getDouble(0).toInt)
                 println("Predicted class: " + pred_cls)
                 this.processed_tweets(tweetCount) = ProcessedTweet(tweetCount, tweet.text, pred_cls)
+                
+                var query = """INSERT INTO bdc.tweets (tw_id, tw_text, tw_class) VALUES (""" + tweet.tw_id.toString +""", '""" + tweet.text + """', '""" + pred_cls +"""');"""
+                query = query.replaceAll("'", "\'")
+                println(query)
+                CassandraConnector(sc).withSessionDo{ session => {
+                    session.execute(query)
+                    }
+                }
+
+                sparkSession.sparkContext.cassandraTable("bdc","tweets").collect().foreach(println)
         }
 
         try {

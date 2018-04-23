@@ -19,11 +19,11 @@
     data = 'JSON_DATA_HERE';
     $(window).on('load', function() { 
         $('#content').empty();
-        jQuery.each(JSON.parse(data), function(id, val) {
-            text = val["text"]
-            pred = val["pred"]
+        data  = data.replace(/(?:\r\n|\r|\n)/g, ' ');
+        jQuery.each(JSON.parse(data), function(id, v) {
+            text = v["columnValues"][2]
+            pred = v["columnValues"][1]
             tag = pred === "Positive" ? "primary" : "danger";
-            //console.log(pred)
             row = '<div class="alert alert-'+tag+'" role="alert">'+text+'</div>';
             console.log(row);
             $('#content').append(row);

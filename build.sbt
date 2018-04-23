@@ -29,6 +29,7 @@ libraryDependencies ++= {
     "org.eclipse.jetty" % "jetty-webapp" % "9.4.8.v20171121" ,
     "javax.servlet" % "javax.servlet-api" % "3.1.0" % "provided",
     "org.scalatra" %% "scalatra-json" % ScalatraVersion,
-    "org.json4s"   %% "json4s-jackson" % "3.2.10"
+    "org.json4s"   %% "json4s-jackson" % "3.2.10",
+    "com.datastax.spark" %% "spark-cassandra-connector" % "2.0.5"
   )
 }
