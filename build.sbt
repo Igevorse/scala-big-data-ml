@@ -20,6 +20,7 @@ libraryDependencies ++= {
     "org.apache.spark" %% "spark-sql" % sparkVersion,
     "org.apache.spark" % "spark-mllib_2.11" % sparkVersion,
     "org.apache.spark" % "spark-streaming_2.11" % sparkVersion,
-    "org.apache.bahir" %% "spark-streaming-twitter" % sparkVersion
+    "org.apache.bahir" %% "spark-streaming-twitter" % sparkVersion,
+    "com.datastax.spark" %% "spark-cassandra-connector" % "2.0.5"
   )
 }
