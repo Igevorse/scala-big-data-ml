@@ -8,40 +8,37 @@ import scala.io.Source
 import com.datastax.spark.connector.cql.CassandraConnector
 import com.datastax.spark.connector._
 
-
 class WebServer extends ScalatraServlet with MethodOverride{
-    before() {
-        
-    }
-    
+    /****************************************************
+     * Main page for displaying real-time 
+     * processing of the stream.
+     ***************************************************/
     get("/") {
         contentType="text/html"
         Source.fromFile("frontend/index.html").mkString
     }
   
+    /****************************************************
+     * Returns you the latest preprocessed 
+     * tweets from the stream.
+     ***************************************************/
     get("/latest/?") {
-        write(JettyLauncher.myML.processed_tweets)
+        write(BravoApplication.sparkStreaming.processed_tweets)
     }
   
-    // Get n tweets from the database
+    /****************************************************
+     * Returns `n` first tweets from the database. 
+     ***************************************************/
     get("/database/:n/?") {
         contentType="text/html"
-        
+
+        if (BravoApplication.sparkStreaming == null)
+            return "Database connection is not established yet! Please try again later."
+
         val n = params("n")
-        /*var query = """SELECT * FROM bdc.tweets LIMIT """+n+""";"""
-        CassandraConnector(sc).withSessionDo{ session => {
-            session.execute(query)
-            }
-        }*/
-        
-        
-        var data = write(JettyLauncher.myML.sparkSession.sparkContext.cassandraTable("bdc","tweets").collect().take(n.toInt))
-        
-        
-        //val keys = JettyLauncher.myML.processed_tweets.keySet.toList.sorted.take(n.toInt)
-        
-        //var data = write(JettyLauncher.myML.processed_tweets.filterKeys(keys.toSet))
-        //var data = write(JettyLauncher.myML.processed_tweets)
+        // Get tweets from the database
+        var data = write(BravoApplication.sparkStreaming.sparkSession.sparkContext.cassandraTable("bdc","tweets").collect().take(n.toInt))
+        // Prepare data to be viewed on the front-end
         data = data.replaceAll("\n", " ").replaceAll("\\n", " ").replaceAll("'", "\'").replaceAll("[\t\n\r\f]", " ")
         
         var html = Source.fromFile("frontend/database.html").mkString
@@ -49,8 +46,9 @@ class WebServer extends ScalatraServlet with MethodOverride{
         html = html.replace("JSON_DATA_HERE", data)
         html
     }
+
     notFound {
-        "Sorry"
+        "Sorry, this page does not exist!"
     }
     
     protected implicit val jsonFormats: Formats = DefaultFormats
