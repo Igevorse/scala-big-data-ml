@@ -24,11 +24,19 @@ class WebServer extends ScalatraServlet with MethodOverride{
     // Get n tweets from the database
     get("/database/:n/?") {
         contentType="text/html"
-        Source.fromFile("frontend/index.html").mkString
-        val n = params("n")
-        val keys = JettyLauncher.myML.processed_tweets.keys().toList().sorted.take(n)
         
-        write(JettyLauncher.myML.processed_tweets.filterKeys(keys.toSet)
+        val n = params("n")
+        val keys = JettyLauncher.myML.processed_tweets.keySet.toList.sorted.take(n.toInt)
+        
+        var data = write(JettyLauncher.myML.processed_tweets.filterKeys(keys.toSet))
+        //var data = write(JettyLauncher.myML.processed_tweets)
+        data = data.replaceAll("[\n]", " ")
+        data = data.replaceAll("'", "\'")
+        
+        var html = Source.fromFile("frontend/database.html").mkString
+        html = html.replace("HERE_SHOULD_BE_N", n);
+        html = html.replace("JSON_DATA_HERE", data)
+        html
     }
     notFound {
         "Sorry"

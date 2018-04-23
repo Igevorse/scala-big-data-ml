@@ -12,7 +12,7 @@
 
 <body>
     <h1 class ='text-center'>Bravo ML project</h1>
-    <div class="container" id="content"></div>
+    <div class="container" id="content"><div class="text-center">Waiting for new tweets...</div></div>
     
     <script>
     var prev_data = "Waiting for new tweets...";
@@ -20,8 +20,9 @@
 
         function update_contents(){
             $.get( "/latest", function( data ) {
-                
-                if (data !== prev_data) {
+                console.log(Object.keys(JSON.parse(data)).length)
+                //console.log(data)
+                if (data !== prev_data && Object.keys(JSON.parse(data)).length != 0) {
                     $('#content').empty();
                     jQuery.each(JSON.parse(data), function(id, val) {
                             text = val["text"]
@@ -29,7 +30,7 @@
                             tag = pred === "Positive" ? "primary" : "danger";
                             //console.log(pred)
                             row = '<div class="alert alert-'+tag+'" role="alert">'+text+'</div>';
-                            console.log(row);
+                            //console.log(row);
                             $('#content').append(row);
                     });
                     

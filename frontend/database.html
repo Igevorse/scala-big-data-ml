@@ -12,43 +12,26 @@
 
 <body>
     <h1 class ='text-center'>Bravo ML project</h1>
-    <div class="container" id="content"></div>
+    <h3 class ='text-center'>First HERE_SHOULD_BE_N database records</h3>
+    <div class="container" id="content">Waiting for new tweets...</div>
     
     <script>
-    var prev_data = "Waiting for new tweets...";
+    data = 'JSON_DATA_HERE';
     $(window).on('load', function() { 
-
-        function update_contents(){
-            $.get( "/latest", function( data ) {
-                
-                if (data !== prev_data) {
-                    $('#content').empty();
-                    jQuery.each(JSON.parse(data), function(id, val) {
-                            text = val["text"]
-                            pred = val["pred"]
-                            tag = pred === "Positive" ? "primary" : "danger";
-                            //console.log(pred)
-                            row = '<div class="alert alert-'+tag+'" role="alert">'+text+'</div>';
-                            console.log(row);
-                            $('#content').append(row);
-                    });
-                    
-                    $('html, body').animate({
-                        scrollTop: $(document).height()
-                    }, 500);
-                    
-                    
-                    prev_data = data;
-                }
-            });
-        }
-
-        update_contents(); // This will run on page load
-
-            
-        setInterval(function(){
-            update_contents() // this will run after every 2 seconds
-        }, 2000);
+        $('#content').empty();
+        jQuery.each(JSON.parse(data), function(id, val) {
+            text = val["text"]
+            pred = val["pred"]
+            tag = pred === "Positive" ? "primary" : "danger";
+            //console.log(pred)
+            row = '<div class="alert alert-'+tag+'" role="alert">'+text+'</div>';
+            console.log(row);
+            $('#content').append(row);
+        });
+        
+        $('html, body').animate({
+            scrollTop: $(document).height()
+        }, 500);
     });
 
     </script>
