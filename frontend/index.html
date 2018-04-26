@@ -21,9 +21,7 @@
         function update_contents(){
             $.get( "/latest", function( data ) {
                 console.log(Object.keys(JSON.parse(data)).length)
-                //console.log(data)
                 if (data !== prev_data && Object.keys(JSON.parse(data)).length != 0) {
-                    $('#content').empty();
                     jQuery.each(JSON.parse(data), function(id, val) {
                             text = val["text"]
                             pred = val["pred"]

@@ -2,7 +2,7 @@ import java.io.FileInputStream
 import java.util.Properties
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.HashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import scala.io.Source
 
 import org.apache.spark.streaming.twitter.TwitterUtils
@@ -35,7 +35,7 @@ class MLStreaming extends Runnable with Serializable{
     case class ProcessedTweet(id:Long, text: String, pred: String)
     var tweetCount : Int = 0
     val predictions = Map(4 -> "Positive", 0 -> "Negative", 2 -> "Neutral")
-    val processed_tweets = HashMap.empty[Long,ProcessedTweet]
+    val processed_tweets = new ConcurrentLinkedQueue[ProcessedTweet]()
     
     /****************************************************
     * Trains the Logistic Regression using "bag of words"
@@ -129,7 +129,8 @@ class MLStreaming extends Runnable with Serializable{
 
             val pred_cls = predictions(prediction(0).getDouble(0).toInt)
             println("Predicted class: " + pred_cls)
-            this.processed_tweets(tweetCount) = ProcessedTweet(tweetCount, tweet.text, pred_cls)
+            processed_tweets.add(ProcessedTweet(tweetCount, tweet.text, pred_cls))
+            
             
             var query = """INSERT INTO bdc.tweets (tw_id, tw_text, tw_class) VALUES (""" + tweet.tw_id.toString +""", '""" + tweet.text + """', '""" + pred_cls +"""');"""
             query = query.replaceAll("'", "\'")
